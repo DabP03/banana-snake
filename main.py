@@ -1,17 +1,30 @@
 import time
 import random
-from machine import Pin
+import board
+from digitalio import DigitalInOut, Direction, Pull
 
 # Game settings
 GRID_WIDTH = 16
 GRID_HEIGHT = 16
-SPEED = 0.75 # sleep timer, the higher the slower
+SPEED = 0.75  # sleep timer, the higher the slower
 
 # Directions
 UP = (-1, 0)
 DOWN = (1, 0)
 LEFT = (0, -1)
 RIGHT = (0, 1)
+
+# Pins
+PIN_UP = board.GP2
+PIN_DOWN = board.GP3
+PIN_LEFT = board.GP4
+PIN_RIGHT = board.GP5
+
+# Tiles
+BACKGROUND = "0"
+SNAKE = "1"
+HEAD = "2"
+FOOD = "3"
 
 def print_grid(grid):
     for row in grid:
@@ -20,7 +33,7 @@ def print_grid(grid):
 
 class SnakeGame:
     def __init__(self):
-        self.grid = [["."] * GRID_WIDTH for _ in range(GRID_HEIGHT)]
+        self.grid = [[BACKGROUND] * GRID_WIDTH for _ in range(GRID_HEIGHT)]
         self.snake = [(GRID_HEIGHT // 2, GRID_WIDTH // 2)]  # Initial snake position
         self.food = self.place_food()
         self.direction = RIGHT
@@ -28,42 +41,41 @@ class SnakeGame:
         self.points = 0
 
         # Setup GPIO buttons with interrupt handlers
-        self.up_button = Pin(10, Pin.IN, None)
-        self.down_button = Pin(11, Pin.IN, None)
-        self.left_button = Pin(12, Pin.IN, None)
-        self.right_button = Pin(13, Pin.IN, None)
+        self.up_button = self.setup_button(PIN_UP)
+        self.down_button = self.setup_button(PIN_DOWN)
+        self.left_button = self.setup_button(PIN_LEFT)
+        self.right_button = self.setup_button(PIN_RIGHT)
 
-        # Debouncing state
-        self.last_interrupt_time = 0
+        # Debouncing
+        self.last_press_time = {
+            'up': 0,
+            'down': 0,
+            'left': 0,
+            'right': 0
+        }
+        self.debounce_time = 0.2  # 200ms debounce
 
-        # Attach interrupt handlers
-        self.up_button.irq(trigger=Pin.IRQ_FALLING, handler=self.handle_up)
-        self.down_button.irq(trigger=Pin.IRQ_FALLING, handler=self.handle_down)
-        self.left_button.irq(trigger=Pin.IRQ_FALLING, handler=self.handle_left)
-        self.right_button.irq(trigger=Pin.IRQ_FALLING, handler=self.handle_right)
+    def setup_button(self, pin):
+        button = DigitalInOut(pin)
+        button.direction = Direction.INPUT
+        button.pull = Pull.UP
+        return button
 
-    def debounce(self):
-        current_time = time.ticks_ms()
-        if time.ticks_diff(current_time, self.last_interrupt_time) > 200:  # 200ms debounce
-            self.last_interrupt_time = current_time
-            return True
-        return False
+    def handle_input(self):
+        current_time = time.monotonic()
 
-    def handle_up(self, pin):
-        if self.debounce():
+        if not self.up_button.value and current_time - self.last_press_time['up'] > self.debounce_time:
             self.change_direction(UP)
-
-    def handle_down(self, pin):
-        if self.debounce():
+            self.last_press_time['up'] = current_time
+        elif not self.down_button.value and current_time - self.last_press_time['down'] > self.debounce_time:
             self.change_direction(DOWN)
-
-    def handle_left(self, pin):
-        if self.debounce():
+            self.last_press_time['down'] = current_time
+        elif not self.left_button.value and current_time - self.last_press_time['left'] > self.debounce_time:
             self.change_direction(LEFT)
-
-    def handle_right(self, pin):
-        if self.debounce():
+            self.last_press_time['left'] = current_time
+        elif not self.right_button.value and current_time - self.last_press_time['right'] > self.debounce_time:
             self.change_direction(RIGHT)
+            self.last_press_time['right'] = current_time
 
     def place_food(self):
         while True:
@@ -73,19 +85,19 @@ class SnakeGame:
 
     def update_grid(self):
         # Clear the grid
-        self.grid = [["."] * GRID_WIDTH for _ in range(GRID_HEIGHT)]
+        self.grid = [[BACKGROUND] * GRID_WIDTH for _ in range(GRID_HEIGHT)]
 
         # Place food
         food_y, food_x = self.food
-        self.grid[food_y][food_x] = "F"
+        self.grid[food_y][food_x] = FOOD
 
         # Place snake
         for y, x in self.snake:
-            self.grid[y][x] = "S"
-    
+            self.grid[y][x] = SNAKE
+
         # Place head
         head_y, head_x = self.snake[0]
-        self.grid[head_y][head_x] = "H"
+        self.grid[head_y][head_x] = HEAD
 
     def move_snake(self):
         head_y, head_x = self.snake[0]
@@ -117,6 +129,7 @@ class SnakeGame:
             self.direction = new_direction
 
     def step(self):
+        self.handle_input()
         self.move_snake()
         self.update_grid()
 
@@ -137,4 +150,3 @@ if __name__ == "__main__":
     game = SnakeGame()
     game.play()
     game.game_over()
-

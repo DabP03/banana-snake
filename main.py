@@ -2,6 +2,8 @@ import time
 import random
 import board
 from digitalio import DigitalInOut, Direction, Pull
+from snake_display import Display
+
 
 # Game settings
 GRID_WIDTH = 16
@@ -20,30 +22,24 @@ PIN_DOWN = board.GP3
 PIN_LEFT = board.GP4
 PIN_RIGHT = board.GP5
 
-
-
 # Tiles
 BACKGROUND = 0
 SNAKE = 1
-HEAD_UP = 2
-HEAD_DOWN = 3
-HEAD_LEFT = 4
-HEAD_RIGHT = 5
-FOOD = 6
-
-def print_grid(grid):
-    for row in grid:
-        print("".join(row))
-    print("\n" + "=" * GRID_WIDTH)
+FOOD = 2
+HEAD_UP = 3
+HEAD_DOWN = 4
+HEAD_LEFT = 5
+HEAD_RIGHT = 6
 
 class SnakeGame:
     def __init__(self):
-        self.grid = [[BACKGROUND] * GRID_WIDTH for _ in range(GRID_HEIGHT)]
-        self.snake = [(GRID_HEIGHT // 2, GRID_WIDTH // 2)]  # Initial snake position
+        self.snake = [(GRID_HEIGHT // 2, GRID_WIDTH // 2), 
+                      (GRID_HEIGHT // 2 - 1, GRID_WIDTH // 2 - 1)]  # Initial snake position
         self.food = self.place_food()
         self.direction = RIGHT
         self.running = True
         self.points = 0
+        self.display = Display()
 
         # Setup GPIO buttons with interrupt handlers
         self.up_button = self.setup_button(PIN_UP)
@@ -90,26 +86,29 @@ class SnakeGame:
 
     def update_grid(self):
         # Clear the grid
-        self.grid = [[BACKGROUND] * GRID_WIDTH for _ in range(GRID_HEIGHT)]
+        for x in range(GRID_WIDTH):
+            for y in range(GRID_HEIGHT):
+                self.display.board[x, y] = BACKGROUND 
 
         # Place food
         food_y, food_x = self.food
-        self.grid[food_y][food_x] = FOOD
+        self.display.board[food_x, food_y] = FOOD
 
         # Place snake
         for y, x in self.snake:
-            self.grid[y][x] = SNAKE
+            self.display.board[x, y] = SNAKE
 
         # Place head
         head_y, head_x = self.snake[0]
         if self.direction == UP:
-            self.grid[head_y][head_x] = HEAD_UP
+            self.display.board[head_x, head_y] = HEAD_UP
         elif self.direction == DOWN:
-            self.grid[head_y][head_x] = HEAD_DOWN
+            self.display.board[head_x, head_y] = HEAD_DOWN
         elif self.direction == LEFT:
-            self.grid[head_y][head_x] = HEAD_LEFT
+            self.display.board[head_x, head_y] = HEAD_LEFT
         else:
-            self.grid[head_y][head_x] = HEAD_RIGHT
+            self.display.board[head_x, head_y] = HEAD_RIGHT
+
 
 
     def move_snake(self):
@@ -131,6 +130,7 @@ class SnakeGame:
         if new_head == self.food:
             self.food = self.place_food()
             self.points += 1
+            self.display.set_score(self.points)
         else:
             # Remove tail
             self.snake.pop()
@@ -149,15 +149,10 @@ class SnakeGame:
     def play(self):
         while self.running:
             self.step()
-            print_grid(self.grid)
             time.sleep(SPEED)
 
     def game_over(self):
-        print("===============Game Over!===============")
-        print()
-        print("Points: ", self.points)
-        print()
-        print("========================================")
+        self.display.set_gameover(True)
 
 if __name__ == "__main__":
     game = SnakeGame()

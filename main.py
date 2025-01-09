@@ -20,11 +20,16 @@ PIN_DOWN = board.GP3
 PIN_LEFT = board.GP4
 PIN_RIGHT = board.GP5
 
+
+
 # Tiles
-BACKGROUND = "0"
-SNAKE = "1"
-HEAD = "2"
-FOOD = "3"
+BACKGROUND = 0
+SNAKE = 1
+HEAD_UP = 2
+HEAD_DOWN = 3
+HEAD_LEFT = 4
+HEAD_RIGHT = 5
+FOOD = 6
 
 def print_grid(grid):
     for row in grid:
@@ -97,7 +102,15 @@ class SnakeGame:
 
         # Place head
         head_y, head_x = self.snake[0]
-        self.grid[head_y][head_x] = HEAD
+        if self.direction == UP:
+            self.grid[head_y][head_x] = HEAD_UP
+        elif self.direction == DOWN:
+            self.grid[head_y][head_x] = HEAD_DOWN
+        elif self.direction == LEFT:
+            self.grid[head_y][head_x] = HEAD_LEFT
+        else:
+            self.grid[head_y][head_x] = HEAD_RIGHT
+
 
     def move_snake(self):
         head_y, head_x = self.snake[0]
